@@ -1,0 +1,117 @@
+﻿@model WebMVCTest.Controllers.QrResult
+@{
+    ViewData["Title"] = "Resultado del Escaneo";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        ¡Código QR Detectado!
+                    </h4>
+                    <a href="@Url.Action("Index")" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="alert alert-success">
+                                <h5><i class="fas fa-check-circle me-2"></i>Contenido del Código QR</h5>
+                                <hr>
+                                <div class="content-display p-3 bg-light rounded">
+                                    <pre class="mb-0 text-wrap" id="qr-content">@Model.Content</pre>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary btn-sm" onclick="copyContent()">
+                                        <i class="fas fa-copy me-1"></i>Copiar Contenido
+                                    </button>
+                                    @if (Uri.IsWellFormedUriString(Model.Content, UriKind.Absolute))
+                                    {
+                                        <a href="@Model.Content" target="_blank" class="btn btn-info btn-sm ms-2">
+                                            <i class="fas fa-external-link-alt me-1"></i>Abrir Enlace
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Detalles del Escaneo</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td><strong>Formato:</strong></td>
+                                            <td>@Model.Format</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Archivo:</strong></td>
+                                            <td class="text-truncate" title="@Model.FileName">@Model.FileName</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Tamaño:</strong></td>
+                                            <td>@Model.GetFormattedSize()</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Dimensiones:</strong></td>
+                                            <td>@Model.ImageWidth x @Model.ImageHeight px</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Escaneado:</strong></td>
+                                            <td>@Model.ScanDateTime.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <a href="@Url.Action("Index")" class="btn btn-primary">
+                                    <i class="fas fa-upload me-2"></i>Escanear Otra Imagen
+                                </a>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <a href="@Url.Action("Scanner")" class="btn btn-success">
+                                    <i class="fas fa-camera me-2"></i>Usar Cámara
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function copyContent() {
+            const content = document.getElementById('qr-content').textContent;
+            navigator.clipboard.writeText(content).then(function () {
+                // Mostrar feedback temporal
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>¡Copiado!';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-primary');
+
+                setTimeout(function () {
+                    btn.innerHTML = originalText;
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-success');
+                }, 2000);
+            }).catch(function (err) {
+                console.error('Error al copiar: ', err);
+                alert('No se pudo copiar el contenido');
+            });
+        }
+    </script>
+}

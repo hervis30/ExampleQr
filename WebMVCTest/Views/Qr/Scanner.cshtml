@@ -1,0 +1,390 @@
+﻿@{
+    ViewData["Title"] = "Escáner de Cámara";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-camera me-2"></i>
+                        Escáner de Cámara
+                    </h4>
+                    <a href="@Url.Action("Index")" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Área de video -->
+                        <div class="col-lg-8">
+                            <div class="position-relative">
+                                <video id="video" width="100%" height="auto" autoplay muted playsinline class="border rounded"></video>
+
+                                <!-- Overlay de scanning -->
+                                <div id="scanOverlay" class="position-absolute top-50 start-50 translate-middle">
+                                    <div class="scan-box">
+                                        <div class="scan-line"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Canvas oculto para capturar frames -->
+                                <canvas id="canvas" style="display: none;"></canvas>
+                            </div>
+
+                            <!-- Controles de cámara -->
+                            <div class="mt-3 text-center">
+                                <button id="startBtn" class="btn btn-success me-2">
+                                    <i class="fas fa-play me-2"></i>Iniciar Cámara
+                                </button>
+                                <button id="stopBtn" class="btn btn-danger me-2" disabled>
+                                    <i class="fas fa-stop me-2"></i>Detener Cámara
+                                </button>
+                                <button id="switchBtn" class="btn btn-info me-2" disabled>
+                                    <i class="fas fa-sync-alt me-2"></i>Cambiar Cámara
+                                </button>
+                                <div class="form-check form-switch d-inline-block ms-3">
+                                    <input class="form-check-input" type="checkbox" id="continuousScan" checked>
+                                    <label class="form-check-label" for="continuousScan">
+                                        Escaneo continuo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de resultados -->
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Resultados</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="status" class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Presiona "Iniciar Cámara" para comenzar
+                                    </div>
+
+                                    <div id="results" style="display: none;">
+                                        <div class="alert alert-success">
+                                            <h6><i class="fas fa-check-circle me-2"></i>¡Código detectado!</h6>
+                                            <hr>
+                                            <strong>Contenido:</strong>
+                                            <div id="qrContent" class="mt-2 p-2 bg-light rounded font-monospace small"></div>
+                                            <hr>
+                                            <small>
+                                                <strong>Formato:</strong> <span id="qrFormat"></span><br>
+                                                <strong>Fecha:</strong> <span id="qrDateTime"></span>
+                                            </small>
+                                            <div class="mt-3">
+                                                <button class="btn btn-sm btn-primary" onclick="copyToClipboard()">
+                                                    <i class="fas fa-copy me-1"></i>Copiar
+                                                </button>
+                                                <button class="btn btn-sm btn-secondary" onclick="clearResults()">
+                                                    <i class="fas fa-trash me-1"></i>Limpiar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Historial de escaneos -->
+                                    <div id="scanHistory">
+                                        <h6>Historial de esta sesión:</h6>
+                                        <div id="historyList" class="list-group list-group-flush small">
+                                            <!-- Los resultados se agregarán aquí dinámicamente -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .scan-box {
+            width: 250px;
+            height: 250px;
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            position: relative;
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+            .scan-box::before,
+            .scan-box::after {
+                content: '';
+                position: absolute;
+                width: 30px;
+                height: 30px;
+                border: 3px solid #28a745;
+            }
+
+            .scan-box::before {
+                top: -3px;
+                left: -3px;
+                border-right: none;
+                border-bottom: none;
+            }
+
+            .scan-box::after {
+                bottom: -3px;
+                right: -3px;
+                border-left: none;
+                border-top: none;
+            }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #28a745, transparent);
+            animation: scanAnimation 2s ease-in-out infinite;
+        }
+
+        @@keyframes scanAnimation {
+            0% {
+                top: 0;
+            }
+
+            50% {
+                top: calc(100% - 2px);
+            }
+
+            100% {
+                top: 0;
+            }
+        }
+
+        #video {
+            max-height: 400px;
+            object-fit: cover;
+        }
+
+        .list-group-item {
+            font-size: 0.875rem;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        let video, canvas, context, scanning = false, currentStream = null;
+        let scanHistory = [];
+        let cameras = [];
+        let currentCameraIndex = 0;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            context = canvas.getContext('2d');
+
+            // Event listeners
+            document.getElementById('startBtn').addEventListener('click', startCamera);
+            document.getElementById('stopBtn').addEventListener('click', stopCamera);
+            document.getElementById('switchBtn').addEventListener('click', switchCamera);
+
+            // Detectar cámaras disponibles
+            detectCameras();
+        });
+
+        async function detectCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                cameras = devices.filter(device => device.kind === 'videoinput');
+
+                if (cameras.length > 1) {
+                    document.getElementById('switchBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error detectando cámaras:', error);
+            }
+        }
+
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        deviceId: cameras.length > 0 ? cameras[currentCameraIndex].deviceId : undefined,
+                        facingMode: cameras.length === 0 ? 'environment' : undefined, // Preferir cámara trasera en móviles
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('switchBtn').disabled = cameras.length <= 1;
+
+                updateStatus('Cámara iniciada. Apunta a un código QR.', 'info');
+
+                // Iniciar escaneo
+                scanning = true;
+                scanLoop();
+
+            } catch (error) {
+                console.error('Error accediendo a la cámara:', error);
+                updateStatus('Error: No se pudo acceder a la cámara. Verifica los permisos.', 'danger');
+            }
+        }
+
+        function stopCamera() {
+            scanning = false;
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+
+            video.srcObject = null;
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('switchBtn').disabled = true;
+
+            updateStatus('Cámara detenida.', 'secondary');
+        }
+
+        async function switchCamera() {
+            if (cameras.length <= 1) return;
+
+            currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+
+            if (scanning) {
+                stopCamera();
+                setTimeout(startCamera, 500);
+            }
+        }
+
+        function scanLoop() {
+            if (!scanning || !video.videoWidth || !video.videoHeight) {
+                if (scanning) {
+                    requestAnimationFrame(scanLoop);
+                }
+                return;
+            }
+
+            // Configurar canvas con las dimensiones del video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Dibujar frame actual en el canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Obtener datos de imagen
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Enviar al servidor para escanear
+            fetch('@Url.Action("ScanFromCamera")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ imageData: imageData })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayResult(data);
+
+                        if (!document.getElementById('continuousScan').checked) {
+                            scanning = false;
+                            updateStatus('Código detectado. Escaneo pausado.', 'success');
+                        } else {
+                            updateStatus('Código detectado. Continuando escaneo...', 'success');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en escaneo:', error);
+                });
+
+            // Continuar el loop si está escaneando
+            if (scanning) {
+                setTimeout(() => requestAnimationFrame(scanLoop), 250); // Escanear cada 250ms
+            }
+        }
+
+        function displayResult(data) {
+            document.getElementById('qrContent').textContent = data.content;
+            document.getElementById('qrFormat').textContent = data.format;
+            document.getElementById('qrDateTime').textContent = data.scanDateTime;
+            document.getElementById('results').style.display = 'block';
+
+            // Agregar al historial
+            addToHistory(data);
+        }
+
+        function addToHistory(data) {
+            scanHistory.push(data);
+
+            const historyList = document.getElementById('historyList');
+            const historyItem = document.createElement('div');
+            historyItem.className = 'list-group-item list-group-item-action';
+            historyItem.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between">
+                            <small class="text-truncate me-2">${data.content}</small>
+                            <small>${new Date(data.scanDateTime).toLocaleTimeString()}</small>
+                        </div>
+                    `;
+
+            historyItem.addEventListener('click', () => {
+                document.getElementById('qrContent').textContent = data.content;
+                document.getElementById('qrFormat').textContent = data.format;
+                document.getElementById('qrDateTime').textContent = data.scanDateTime;
+                document.getElementById('results').style.display = 'block';
+            });
+
+            historyList.insertBefore(historyItem, historyList.firstChild);
+
+            // Mantener solo los últimos 10 resultados
+            if (historyList.children.length > 10) {
+                historyList.removeChild(historyList.lastChild);
+            }
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `alert alert-${type}`;
+            status.innerHTML = `<i class="fas fa-info-circle me-2"></i>${message}`;
+        }
+
+        function copyToClipboard() {
+            const content = document.getElementById('qrContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                // Mostrar feedback temporal
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Copiado!';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-primary');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-success');
+                }, 2000);
+            });
+        }
+
+        function clearResults() {
+            document.getElementById('results').style.display = 'none';
+        }
+
+        // Limpiar recursos al salir de la página
+        window.addEventListener('beforeunload', () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+}

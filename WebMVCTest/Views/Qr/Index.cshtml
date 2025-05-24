@@ -1,0 +1,165 @@
+﻿@{
+    ViewData["Title"] = "Escáner de Códigos QR";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">
+                        <i class="fas fa-qrcode me-2"></i>
+                        Escáner de Códigos QR
+                    </h2>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    <!-- Opciones de escaneo -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-secondary h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-upload fa-3x text-primary mb-3"></i>
+                                    <h5>Subir Imagen</h5>
+                                    <p class="text-muted">Sube una imagen con código QR desde tu dispositivo</p>
+                                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click();">
+                                        <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-secondary h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-camera fa-3x text-success mb-3"></i>
+                                    <h5>Usar Cámara</h5>
+                                    <p class="text-muted">Escanea códigos QR en tiempo real con tu cámara</p>
+                                    <a href="@Url.Action("Scanner")" class="btn btn-success">
+                                        <i class="fas fa-camera me-2"></i>Abrir Cámara
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario para subir archivo -->
+                    <form id="uploadForm" asp-action="UploadAndScan" method="post" enctype="multipart/form-data" style="display: none;">
+                        <input type="file" id="fileInput" name="file" accept="image/*" onchange="handleFileSelect(this)" />
+                    </form>
+
+                    <!-- Área de preview de imagen -->
+                    <div id="imagePreview" class="mt-4" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Vista previa de la imagen</h6>
+                            </div>
+                            <div class="card-body text-center">
+                                <img id="previewImg" src="" alt="Preview" class="img-fluid mb-3" style="max-height: 300px;" />
+                                <div>
+                                    <button type="button" class="btn btn-success me-2" onclick="submitForm()">
+                                        <i class="fas fa-search me-2"></i>Escanear QR
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="cancelUpload()">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información adicional -->
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Formatos soportados:</h6>
+                            <ul class="mb-0">
+                                <li>Códigos QR estándar</li>
+                                <li>Data Matrix</li>
+                                <li>Aztec Code</li>
+                                <li>PDF417</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <h6>Escaneando código QR...</h6>
+                <small class="text-muted">Por favor espera</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // Validar tipo de archivo
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp', 'image/gif'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Por favor, selecciona solo archivos de imagen (JPG, PNG, BMP, GIF).');
+                    input.value = '';
+                    return;
+                }
+
+                // Validar tamaño (máximo 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('El archivo es demasiado grande. Máximo 10MB.');
+                    input.value = '';
+                    return;
+                }
+
+                // Mostrar preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function submitForm() {
+            // Mostrar loading
+            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+            loadingModal.show();
+
+            // Enviar formulario
+            document.getElementById('uploadForm').submit();
+        }
+
+        function cancelUpload() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('imagePreview').style.display = 'none';
+        }
+
+        // Auto-ocultar alerts después de 5 segundos
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+}
