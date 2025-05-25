@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WebMVCTest.styles.css" asp-append-version="true" />
+
+    <!-- Font Awesome para los iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- IMPORTANTE: Esta línea renderiza los estilos personalizados de las vistas -->
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <header>
@@ -25,11 +31,30 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                        <!-- Menú QR Scanner -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-dark" href="#" id="qrDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-qrcode me-1"></i> QR Scanner
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="qrDropdown">
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Qr" asp-action="Index">
+                                        <i class="fas fa-upload me-1"></i> Subir Imagen
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Qr" asp-action="Scanner">
+                                        <i class="fas fa-camera me-1"></i> Usar Cámara
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
+
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
@@ -38,12 +63,15 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2025 - WebMVCTest - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2024 - WebMVCTest - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <!-- IMPORTANTE: Esta línea renderiza los scripts personalizados de las vistas -->
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
