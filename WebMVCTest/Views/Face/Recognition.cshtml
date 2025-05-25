@@ -1,0 +1,552 @@
+﻿@{
+    ViewData["Title"] = "Reconocimiento Facial";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Reconocimiento Facial
+                    </h4>
+                    <a href="@Url.Action("Index")" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Área de video -->
+                        <div class="col-lg-8">
+                            <div class="position-relative">
+                                <video id="video" width="100%" height="auto" autoplay muted playsinline class="border rounded"></video>
+
+                                <!-- Canvas overlay para dibujar reconocimientos -->
+                                <canvas id="overlay" class="position-absolute top-0 start-0 border rounded"></canvas>
+
+                                <!-- Canvas oculto para procesamiento -->
+                                <canvas id="canvas" style="display: none;"></canvas>
+                            </div>
+
+                            <!-- Controles -->
+                            <div class="mt-3 text-center">
+                                <button id="startBtn" class="btn btn-success me-2">
+                                    <i class="fas fa-play me-2"></i>Iniciar Reconocimiento
+                                </button>
+                                <button id="stopBtn" class="btn btn-danger me-2" disabled>
+                                    <i class="fas fa-stop me-2"></i>Detener
+                                </button>
+                                <button id="registerBtn" class="btn btn-primary me-2" disabled>
+                                    <i class="fas fa-user-plus me-2"></i>Registrar Rostro
+                                </button>
+                                <button id="loadFacesBtn" class="btn btn-info me-2">
+                                    <i class="fas fa-download me-2"></i>Cargar Rostros
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Panel de información -->
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Rostros Registrados</h6>
+                                    <span id="faceCountBadge" class="badge bg-primary">0</span>
+                                </div>
+                                <div class="card-body">
+                                    <div id="status" class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Presiona "Cargar Rostros" para inicializar
+                                    </div>
+
+                                    <!-- Lista de rostros registrados -->
+                                    <div id="registeredFaces" class="mb-3">
+                                        <!-- Se llenarán dinámicamente -->
+                                    </div>
+
+                                    <!-- Reconocimientos en tiempo real -->
+                                    <div id="recognitionResults" class="mb-3" style="display: none;">
+                                        <h6>Reconocimientos:</h6>
+                                        <div id="recognitionList">
+                                            <!-- Se llenarán dinámicamente -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para registrar nuevo rostro -->
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Nuevo Rostro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="registerPreview" class="text-center mb-3">
+                    <!-- Imagen del rostro capturado -->
+                </div>
+                <div class="mb-3">
+                    <label for="personName" class="form-label">Nombre de la persona:</label>
+                    <input type="text" class="form-control" id="personName" placeholder="Ingresa el nombre">
+                </div>
+                <div class="mb-3">
+                    <label for="personDescription" class="form-label">Descripción (opcional):</label>
+                    <textarea class="form-control" id="personDescription" rows="3" placeholder="Información adicional"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="savePersonBtn">
+                    <i class="fas fa-save me-2"></i>Guardar Rostro
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        #video, #overlay {
+            max-height: 500px;
+            width: 100%;
+            object-fit: cover;
+            background-color: #000;
+        }
+
+        #overlay {
+            pointer-events: none;
+        }
+
+        .face-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background-color: #f8f9fa;
+            transition: transform 0.2s;
+        }
+
+            .face-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+
+        .face-thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #dee2e6;
+        }
+
+        .recognition-match {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .recognition-unknown {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+    </style>
+}
+
+@section Scripts {
+    <!-- Face-api.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+        let video, overlay, canvas, context, overlayContext;
+        let isRecognizing = false, currentStream = null;
+        let modelsLoaded = false;
+        let labeledFaceDescriptors = [];
+        let faceMatcher = null;
+        let registeredFaces = [];
+        let capturedFaceDescriptor = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            video = document.getElementById('video');
+            overlay = document.getElementById('overlay');
+            canvas = document.getElementById('canvas');
+            context = canvas.getContext('2d');
+            overlayContext = overlay.getContext('2d');
+
+            // Event listeners
+            document.getElementById('startBtn').addEventListener('click', startRecognition);
+            document.getElementById('stopBtn').addEventListener('click', stopRecognition);
+            document.getElementById('registerBtn').addEventListener('click', registerCurrentFace);
+            document.getElementById('loadFacesBtn').addEventListener('click', loadRegisteredFaces);
+            document.getElementById('savePersonBtn').addEventListener('click', saveNewPerson);
+
+            // Cargar modelos
+            loadModels();
+        });
+
+        async function loadModels() {
+            try {
+                updateStatus('Cargando modelos de reconocimiento facial...', 'warning');
+
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                modelsLoaded = true;
+                updateStatus('Modelos cargados. Presiona "Cargar Rostros" para continuar.', 'success');
+
+            } catch (error) {
+                console.error('Error cargando modelos:', error);
+                updateStatus('Error al cargar modelos. Verifica tu conexión a internet.', 'danger');
+            }
+        }
+
+        async function loadRegisteredFaces() {
+            try {
+                updateStatus('Cargando rostros registrados...', 'info');
+
+                const response = await fetch('@Url.Action("GetSavedFaces")');
+                const data = await response.json();
+
+                if (data.success && data.faces) {
+                    registeredFaces = data.faces;
+
+                    // Crear descriptores etiquetados
+                    labeledFaceDescriptors = data.faces.map(face => {
+                        const descriptors = JSON.parse(face.faceDescriptor);
+                        return new faceapi.LabeledFaceDescriptors(face.personName, [new Float32Array(descriptors)]);
+                    });
+
+                    // Crear matcher
+                    if (labeledFaceDescriptors.length > 0) {
+                        faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+                        updateStatus(`${data.faces.length} rostro(s) cargado(s). Listo para reconocer.`, 'success');
+                        document.getElementById('startBtn').disabled = false;
+                    } else {
+                        updateStatus('No hay rostros registrados. Registra algunos rostros primero.', 'warning');
+                    }
+
+                    updateFacesList();
+                    document.getElementById('faceCountBadge').textContent = data.faces.length;
+                } else {
+                    updateStatus('Error al cargar rostros registrados.', 'danger');
+                }
+
+            } catch (error) {
+                console.error('Error cargando rostros:', error);
+                updateStatus('Error al cargar rostros registrados.', 'danger');
+            }
+        }
+
+        function updateFacesList() {
+            const container = document.getElementById('registeredFaces');
+            container.innerHTML = '';
+
+            registeredFaces.forEach(face => {
+                const faceDiv = document.createElement('div');
+                faceDiv.className = 'face-card';
+                faceDiv.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <div class="face-thumbnail bg-secondary d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-user text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${face.personName}</h6>
+                                    <small class="text-muted">Registrado: ${new Date(face.createdDate).toLocaleDateString()}</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteFace('${face.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                container.appendChild(faceDiv);
+            });
+        }
+
+        async function startRecognition() {
+            if (!modelsLoaded) {
+                updateStatus('Los modelos aún se están cargando.', 'warning');
+                return;
+            }
+
+            if (!faceMatcher) {
+                updateStatus('Primero carga los rostros registrados.', 'warning');
+                return;
+            }
+
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+
+                video.onloadedmetadata = () => {
+                    video.play();
+
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+
+                    isRecognizing = true;
+                    recognizeFaces();
+
+                    document.getElementById('recognitionResults').style.display = 'block';
+                };
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('registerBtn').disabled = false;
+
+                updateStatus('Reconocimiento iniciado.', 'success');
+
+            } catch (error) {
+                console.error('Error accediendo a la cámara:', error);
+                updateStatus('Error: No se pudo acceder a la cámara.', 'danger');
+            }
+        }
+
+        function stopRecognition() {
+            isRecognizing = false;
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+
+            video.srcObject = null;
+            overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('registerBtn').disabled = true;
+
+            document.getElementById('recognitionResults').style.display = 'none';
+
+            updateStatus('Reconocimiento detenido.', 'secondary');
+        }
+
+        async function recognizeFaces() {
+            if (!isRecognizing || !video.videoWidth || !video.videoHeight) {
+                if (isRecognizing) {
+                    requestAnimationFrame(recognizeFaces);
+                }
+                return;
+            }
+
+            try {
+                const detections = await faceapi
+                    .detectAllFaces(video)
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+
+                overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+
+                if (detections.length > 0) {
+                    const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
+
+                    detections.forEach((detection, i) => {
+                        const { x, y, width, height } = detection.detection.box;
+                        const result = results[i];
+
+                        // Color del rectángulo según el reconocimiento
+                        const isMatch = result.label !== 'unknown';
+                        overlayContext.strokeStyle = isMatch ? '#00ff00' : '#ff9900';
+                        overlayContext.lineWidth = 3;
+                        overlayContext.strokeRect(x, y, width, height);
+
+                        // Etiqueta
+                        overlayContext.fillStyle = isMatch ? '#00ff00' : '#ff9900';
+                        overlayContext.font = '16px Arial';
+                        const label = isMatch ? result.label : 'Desconocido';
+                        const confidence = isMatch ? `(${(1 - result.distance).toFixed(2)})` : '';
+                        overlayContext.fillText(`${label} ${confidence}`, x, y - 10);
+                    });
+
+                    updateRecognitionResults(results);
+                }
+
+            } catch (error) {
+                console.error('Error en reconocimiento:', error);
+            }
+
+            if (isRecognizing) {
+                requestAnimationFrame(recognizeFaces);
+            }
+        }
+
+        function updateRecognitionResults(results) {
+            const container = document.getElementById('recognitionList');
+            container.innerHTML = '';
+
+            results.forEach((result, index) => {
+                const isMatch = result.label !== 'unknown';
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `face-card ${isMatch ? 'recognition-match' : 'recognition-unknown'}`;
+
+                const confidence = isMatch ? ((1 - result.distance) * 100).toFixed(1) : 'N/A';
+                const label = isMatch ? result.label : 'Persona desconocida';
+
+                resultDiv.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${label}</strong>
+                                    <br><small>Confianza: ${confidence}%</small>
+                                </div>
+                                <i class="fas ${isMatch ? 'fa-check-circle text-success' : 'fa-question-circle text-warning'}"></i>
+                            </div>
+                        `;
+
+                container.appendChild(resultDiv);
+            });
+        }
+
+        async function registerCurrentFace() {
+            if (!video.videoWidth || !video.videoHeight) return;
+
+            try {
+                const detection = await faceapi
+                    .detectSingleFace(video)
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (detection) {
+                    capturedFaceDescriptor = Array.from(detection.descriptor);
+
+                    // Capturar imagen del rostro
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0);
+
+                    const { x, y, width, height } = detection.detection.box;
+                    const faceCanvas = document.createElement('canvas');
+                    const faceContext = faceCanvas.getContext('2d');
+                    faceCanvas.width = width;
+                    faceCanvas.height = height;
+                    faceContext.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+
+                    document.getElementById('registerPreview').innerHTML = `
+                                <img src="${faceCanvas.toDataURL()}" class="img-fluid rounded" style="max-width: 200px;">
+                            `;
+
+                    const modal = new bootstrap.Modal(document.getElementById('registerModal'));
+                    modal.show();
+                } else {
+                    updateStatus('No se detectó ningún rostro claro. Inténtalo de nuevo.', 'warning');
+                }
+
+            } catch (error) {
+                console.error('Error capturando rostro:', error);
+                updateStatus('Error al capturar rostro.', 'danger');
+            }
+        }
+
+        async function saveNewPerson() {
+            const name = document.getElementById('personName').value.trim();
+            const description = document.getElementById('personDescription').value.trim();
+
+            if (!name) {
+                alert('Por favor, ingresa un nombre.');
+                return;
+            }
+
+            if (!capturedFaceDescriptor) {
+                alert('No hay rostro capturado.');
+                return;
+            }
+
+            try {
+                const response = await fetch('@Url.Action("SaveFaceData")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        personName: name,
+                        faceDescriptor: JSON.stringify(capturedFaceDescriptor),
+                        imagePath: ''
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateStatus(`Rostro de ${name} guardado exitosamente.`, 'success');
+
+                    // Cerrar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('registerModal'));
+                    modal.hide();
+
+                    // Limpiar formulario
+                    document.getElementById('personName').value = '';
+                    document.getElementById('personDescription').value = '';
+
+                    // Recargar rostros
+                    loadRegisteredFaces();
+                } else {
+                    alert('Error al guardar: ' + result.message);
+                }
+
+            } catch (error) {
+                console.error('Error guardando rostro:', error);
+                alert('Error al guardar el rostro.');
+            }
+        }
+
+        async function deleteFace(faceId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este rostro?')) return;
+
+            try {
+                const response = await fetch('@Url.Action("DeleteFace")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ faceId: faceId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateStatus('Rostro eliminado exitosamente.', 'success');
+                    loadRegisteredFaces();
+                } else {
+                    alert('Error al eliminar: ' + result.message);
+                }
+
+            } catch (error) {
+                console.error('Error eliminando rostro:', error);
+                alert('Error al eliminar el rostro.');
+            }
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `alert alert-${type}`;
+            status.innerHTML = `<i class="fas fa-info-circle me-2"></i>${message}`;
+        }
+
+        // Limpiar recursos al salir
+        window.addEventListener('beforeunload', () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+}

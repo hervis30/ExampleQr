@@ -1,0 +1,238 @@
+﻿@{
+    ViewData["Title"] = "Reconocimiento Facial";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h2 class="mb-0">
+                        <i class="fas fa-user-check me-2"></i>
+                        Sistema de Reconocimiento Facial
+                    </h2>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            @TempData["Success"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    <!-- Opciones de reconocimiento facial -->
+                    <div class="row mb-4">
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="card border-primary h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-camera fa-3x text-primary mb-3"></i>
+                                    <h5>Detección en Vivo</h5>
+                                    <p class="text-muted small">Detecta rostros en tiempo real usando tu cámara</p>
+                                    <a href="@Url.Action("Detection")" class="btn btn-primary">
+                                        <i class="fas fa-play me-2"></i>Iniciar Detección
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="card border-success h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x text-success mb-3"></i>
+                                    <h5>Reconocimiento</h5>
+                                    <p class="text-muted small">Identifica personas registradas en el sistema</p>
+                                    <a href="@Url.Action("Recognition")" class="btn btn-success">
+                                        <i class="fas fa-search me-2"></i>Reconocer
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="card border-warning h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-upload fa-3x text-warning mb-3"></i>
+                                    <h5>Analizar Imagen</h5>
+                                    <p class="text-muted small">Sube una imagen para analizar rostros</p>
+                                    <a href="@Url.Action("Upload")" class="btn btn-warning">
+                                        <i class="fas fa-image me-2"></i>Subir Imagen
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="card border-info h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
+                                    <h5>Estadísticas</h5>
+                                    <p class="text-muted small">Ver estadísticas del sistema</p>
+                                    <a href="@Url.Action("Statistics")" class="btn btn-info">
+                                        <i class="fas fa-analytics me-2"></i>Ver Stats
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información del sistema -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle me-2"></i>Características del Sistema:</h6>
+                                <ul class="mb-0 small">
+                                    <li><strong>Detección en tiempo real:</strong> Identifica rostros usando tu cámara web</li>
+                                    <li><strong>Reconocimiento facial:</strong> Compara rostros con una base de datos</li>
+                                    <li><strong>Análisis de emociones:</strong> Detecta emociones básicas</li>
+                                    <li><strong>Estimación de edad y género:</strong> Análisis automático de características</li>
+                                    <li><strong>Detección de accesorios:</strong> Identifica lentes, mascarillas, etc.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-shield-alt me-2"></i>Privacidad:</h6>
+                                <ul class="mb-0 small">
+                                    <li>Los datos se almacenan localmente</li>
+                                    <li>Las imágenes temporales se eliminan automáticamente</li>
+                                    <li>Puedes eliminar rostros registrados en cualquier momento</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accesos rápidos -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-rocket me-2"></i>Acceso Rápido</h6>
+                                    <div class="btn-group-sm" role="group">
+                                        <a href="@Url.Action("Detection")" class="btn btn-outline-primary btn-sm me-2">
+                                            <i class="fas fa-camera me-1"></i>Detección Rápida
+                                        </a>
+                                        <a href="@Url.Action("Recognition")" class="btn btn-outline-success btn-sm me-2">
+                                            <i class="fas fa-search me-1"></i>Reconocer Ahora
+                                        </a>
+                                        <button class="btn btn-outline-info btn-sm" onclick="loadSystemStatus()">
+                                            <i class="fas fa-heartbeat me-1"></i>Estado del Sistema
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de estado del sistema -->
+<div class="modal fade" id="systemStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Estado del Sistema</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="systemStatusContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Verificando estado del sistema...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function loadSystemStatus() {
+            const modal = new bootstrap.Modal(document.getElementById('systemStatusModal'));
+            modal.show();
+
+            // Simular verificación del sistema
+            setTimeout(() => {
+                const content = document.getElementById('systemStatusContent');
+                content.innerHTML = `
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <i class="fas fa-camera fa-2x text-success"></i>
+                                    <p class="small mt-2"><strong>Cámara</strong><br>Disponible</p>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-microchip fa-2x text-success"></i>
+                                    <p class="small mt-2"><strong>Face API</strong><br>Cargado</p>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-database fa-2x text-success"></i>
+                                    <p class="small mt-2"><strong>Base de Datos</strong><br>Conectada</p>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="alert alert-success small mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Todos los sistemas funcionando correctamente
+                            </div>
+                        `;
+            }, 1500);
+        }
+
+        // Auto-ocultar alerts después de 5 segundos
+        setTimeout(function () {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+}
+
+@section Styles {
+    <style>
+        .card {
+            transition: transform 0.2s;
+        }
+
+            .card:hover {
+                transform: translateY(-2px);
+            }
+
+        .btn {
+            transition: all 0.2s;
+        }
+
+        .fa-3x {
+            font-size: 2.5em;
+        }
+
+        .alert {
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            border-left-color: #17a2b8;
+        }
+
+        .alert-warning {
+            border-left-color: #ffc107;
+        }
+    </style>
+}

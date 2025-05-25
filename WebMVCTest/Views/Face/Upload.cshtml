@@ -1,0 +1,719 @@
+﻿@{
+    ViewData["Title"] = "Analizar Imagen";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>
+                        Analizar Imagen
+                    </h4>
+                    <a href="@Url.Action("Index")" class="btn btn-dark btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    <!-- Área de subida de archivos -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-dashed border-2 border-warning" id="dropArea">
+                                <div class="card-body text-center py-5">
+                                    <i class="fas fa-cloud-upload-alt fa-4x text-warning mb-3"></i>
+                                    <h5>Sube una imagen para analizar rostros</h5>
+                                    <p class="text-muted">Arrastra y suelta aquí o haz clic para seleccionar</p>
+                                    <button class="btn btn-warning" onclick="document.getElementById('fileInput').click();">
+                                        <i class="fas fa-folder-open me-2"></i>Seleccionar Imagen
+                                    </button>
+                                    <div class="mt-3">
+                                        <small class="text-muted">
+                                            Formatos soportados: JPG, PNG, BMP, GIF • Máximo 5MB
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario para subir archivo -->
+                    <form id="uploadForm" asp-action="AnalyzeImage" method="post" enctype="multipart/form-data" style="display: none;">
+                        <input type="file" id="fileInput" name="file" accept="image/*" onchange="handleFileSelect(this)" />
+                    </form>
+
+                    <!-- Área de preview de imagen -->
+                    <div id="imagePreview" class="mt-4" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Vista previa y análisis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="position-relative">
+                                            <img id="previewImg" src="" alt="Preview" class="img-fluid rounded" style="max-height: 400px; width: 100%;" />
+                                            <canvas id="overlay" class="position-absolute top-0 start-0 rounded" style="display: none;"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div id="analysisResult" class="h-100">
+                                            <div id="waitingAnalysis" class="d-flex align-items-center justify-content-center h-100">
+                                                <div class="text-center">
+                                                    <div class="spinner-border text-warning mb-3" role="status">
+                                                        <span class="visually-hidden">Analizando...</span>
+                                                    </div>
+                                                    <p>Preparando análisis facial...</p>
+                                                    <button class="btn btn-warning" onclick="analyzeImage()">
+                                                        <i class="fas fa-search me-2"></i>Analizar Rostros
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div id="analysisResults" style="display: none;">
+                                                <h6><i class="fas fa-chart-bar me-2"></i>Resultados del Análisis</h6>
+                                                <div id="faceAnalysis">
+                                                    <!-- Se llenarán dinámicamente -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 text-center">
+                                    <button type="button" class="btn btn-success me-2" onclick="uploadAndAnalyze()" id="uploadBtn" style="display: none;">
+                                        <i class="fas fa-cloud-upload-alt me-2"></i>Subir y Analizar en Servidor
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="cancelUpload()">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información adicional -->
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle me-2"></i>Análisis Disponible:</h6>
+                                <ul class="mb-0 small">
+                                    <li><strong>Detección facial:</strong> Identificación automática de rostros</li>
+                                    <li><strong>Análisis de emociones:</strong> Detecta felicidad, tristeza, enojo, etc.</li>
+                                    <li><strong>Estimación de edad y género:</strong> Predicción aproximada</li>
+                                    <li><strong>Puntos faciales:</strong> 68 puntos de referencia</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-shield-alt me-2"></i>Privacidad:</h6>
+                                <ul class="mb-0 small">
+                                    <li>Las imágenes se procesan localmente en tu navegador</li>
+                                    <li>Los archivos temporales se eliminan automáticamente</li>
+                                    <li>Ninguna imagen se almacena permanentemente</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de análisis completo -->
+<div class="modal fade" id="fullAnalysisModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Análisis Detallado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fullAnalysisContent">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="downloadAnalysis()">
+                    <i class="fas fa-download me-2"></i>Descargar Reporte
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-warning mb-3" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <h6>Analizando imagen...</h6>
+                <small class="text-muted">Por favor espera</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .border-dashed {
+            border-style: dashed !important;
+        }
+
+        #dropArea {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+            #dropArea:hover {
+                background-color: #fff3cd;
+                border-color: #ffc107 !important;
+            }
+
+            #dropArea.dragover {
+                background-color: #fff3cd;
+                border-color: #ffc107 !important;
+                transform: scale(1.02);
+            }
+
+        #overlay {
+            pointer-events: none;
+        }
+
+        .face-detection-box {
+            border: 2px solid #ffc107;
+            position: absolute;
+            border-radius: 4px;
+        }
+
+        .face-analysis-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background-color: #f8f9fa;
+        }
+
+        .emotion-bar {
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .emotion-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            background: linear-gradient(90deg, #ffc107, #ffca28);
+        }
+
+        .confidence-badge {
+            font-size: 0.75rem;
+        }
+    </style>
+}
+
+@section Scripts {
+    <!-- Face-api.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+        let modelsLoaded = false;
+        let currentImageFile = null;
+        let analysisData = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Configurar drag and drop
+            setupDragAndDrop();
+
+            // Cargar modelos
+            loadModels();
+        });
+
+        function setupDragAndDrop() {
+            const dropArea = document.getElementById('dropArea');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('dragover'), false);
+            });
+
+            dropArea.addEventListener('drop', handleDrop, false);
+            dropArea.addEventListener('click', () => document.getElementById('fileInput').click());
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files.length > 0) {
+                handleFileSelect({ files: files });
+            }
+        }
+
+        async function loadModels() {
+            try {
+                console.log('Cargando modelos de Face-api.js...');
+
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+                    faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
+                ]);
+
+                modelsLoaded = true;
+                console.log('Modelos cargados correctamente');
+
+            } catch (error) {
+                console.error('Error cargando modelos:', error);
+                modelsLoaded = false;
+            }
+        }
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Validar tipo de archivo
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Por favor, selecciona solo archivos de imagen (JPG, PNG, BMP, GIF).');
+                return;
+            }
+
+            // Validar tamaño (máximo 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('El archivo es demasiado grande. Máximo 5MB.');
+                return;
+            }
+
+            currentImageFile = file;
+
+            // Mostrar preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById('previewImg').src = e.target.result;
+                document.getElementById('imagePreview').style.display = 'block';
+                document.getElementById('uploadBtn').style.display = 'inline-block';
+
+                // Resetear análisis
+                document.getElementById('analysisResults').style.display = 'none';
+                document.getElementById('waitingAnalysis').style.display = 'block';
+                document.getElementById('overlay').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function analyzeImage() {
+            if (!modelsLoaded) {
+                alert('Los modelos aún se están cargando. Por favor espera.');
+                return;
+            }
+
+            if (!currentImageFile) {
+                alert('No hay imagen seleccionada.');
+                return;
+            }
+
+            try {
+                // Mostrar loading
+                document.getElementById('waitingAnalysis').innerHTML = `
+                            <div class="text-center">
+                                <div class="spinner-border text-warning mb-3" role="status"></div>
+                                <p>Analizando rostros...</p>
+                            </div>
+                        `;
+
+                const img = document.getElementById('previewImg');
+
+                // Esperar a que la imagen se cargue completamente
+                await new Promise((resolve) => {
+                    if (img.complete) {
+                        resolve();
+                    } else {
+                        img.onload = resolve;
+                    }
+                });
+
+                // Detectar rostros con toda la información
+                const detections = await faceapi
+                    .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceExpressions()
+                    .withAgeAndGender();
+
+                // Configurar canvas overlay
+                const overlay = document.getElementById('overlay');
+                overlay.width = img.naturalWidth || img.width;
+                overlay.height = img.naturalHeight || img.height;
+                overlay.style.width = img.width + 'px';
+                overlay.style.height = img.height + 'px';
+                overlay.style.display = 'block';
+
+                const ctx = overlay.getContext('2d');
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                // Calcular escala
+                const scaleX = overlay.width / img.width;
+                const scaleY = overlay.height / img.height;
+
+                // Dibujar detecciones
+                detections.forEach((detection, index) => {
+                    const box = detection.detection.box;
+
+                    // Ajustar coordenadas por la escala
+                    const x = box.x * scaleX;
+                    const y = box.y * scaleY;
+                    const width = box.width * scaleX;
+                    const height = box.height * scaleY;
+
+                    // Dibujar rectángulo
+                    ctx.strokeStyle = '#ffc107';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, width, height);
+
+                    // Etiqueta
+                    ctx.fillStyle = '#ffc107';
+                    ctx.font = '16px Arial';
+                    const age = Math.round(detection.age);
+                    const gender = detection.gender;
+                    ctx.fillText(`${gender}, ${age} años`, x, y - 10);
+
+                    // Número del rostro
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(x, y, 25, 25);
+                    ctx.fillStyle = '#ffc107';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText(index + 1, x + 8, y + 17);
+                });
+
+                analysisData = detections;
+                displayAnalysisResults(detections);
+
+            } catch (error) {
+                console.error('Error analizando imagen:', error);
+                alert('Error al analizar la imagen. Inténtalo de nuevo.');
+            }
+        }
+
+        function displayAnalysisResults(detections) {
+            document.getElementById('waitingAnalysis').style.display = 'none';
+            document.getElementById('analysisResults').style.display = 'block';
+
+            const container = document.getElementById('faceAnalysis');
+            container.innerHTML = '';
+
+            if (detections.length === 0) {
+                container.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No se detectaron rostros en la imagen.
+                            </div>
+                        `;
+                return;
+            }
+
+            // Resumen general
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'alert alert-success mb-3';
+            summaryDiv.innerHTML = `
+                        <h6><i class="fas fa-check-circle me-2"></i>Análisis Completado</h6>
+                        <p class="mb-0">Se detectaron <strong>${detections.length}</strong> rostro(s) en la imagen.</p>
+                    `;
+            container.appendChild(summaryDiv);
+
+            // Detalles de cada rostro
+            detections.forEach((detection, index) => {
+                const faceDiv = document.createElement('div');
+                faceDiv.className = 'face-analysis-card';
+
+                // Emoción dominante
+                const maxExpression = Object.keys(detection.expressions).reduce((a, b) =>
+                    detection.expressions[a] > detection.expressions[b] ? a : b
+                );
+
+                faceDiv.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">Rostro ${index + 1}</h6>
+                                <span class="badge bg-success confidence-badge">${(detection.detection.score * 100).toFixed(1)}% confianza</span>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small><strong>Edad estimada:</strong> ${Math.round(detection.age)} años</small><br>
+                                    <small><strong>Género:</strong> ${detection.gender}</small><br>
+                                    <small><strong>Emoción principal:</strong> ${translateEmotion(maxExpression)} (${(detection.expressions[maxExpression] * 100).toFixed(1)}%)</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small><strong>Top 3 emociones:</strong></small>
+                                    ${getTopEmotions(detection.expressions)}
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-warning" onclick="showDetailedAnalysis(${index})">
+                                    <i class="fas fa-eye me-1"></i>Ver Detalles
+                                </button>
+                            </div>
+                        `;
+
+                container.appendChild(faceDiv);
+            });
+
+            // Botón para análisis completo
+            const fullAnalysisBtn = document.createElement('div');
+            fullAnalysisBtn.className = 'text-center mt-3';
+            fullAnalysisBtn.innerHTML = `
+                        <button class="btn btn-warning" onclick="showFullAnalysis()">
+                            <i class="fas fa-chart-pie me-2"></i>Ver Análisis Completo
+                        </button>
+                    `;
+            container.appendChild(fullAnalysisBtn);
+        }
+
+        function getTopEmotions(expressions) {
+            const sorted = Object.entries(expressions)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3);
+
+            return sorted.map(([emotion, value]) => `
+                        <div class="mb-1">
+                            <small>${translateEmotion(emotion)}: ${(value * 100).toFixed(1)}%</small>
+                            <div class="emotion-bar">
+                                <div class="emotion-fill" style="width: ${value * 100}%"></div>
+                            </div>
+                        </div>
+                    `).join('');
+        }
+
+        function translateEmotion(emotion) {
+            const translations = {
+                happy: 'Feliz',
+                sad: 'Triste',
+                angry: 'Enojado',
+                fearful: 'Temeroso',
+                disgusted: 'Disgustado',
+                surprised: 'Sorprendido',
+                neutral: 'Neutral'
+            };
+            return translations[emotion] || emotion;
+        }
+
+        function showDetailedAnalysis(faceIndex) {
+            if (!analysisData || !analysisData[faceIndex]) return;
+
+            const detection = analysisData[faceIndex];
+            const modal = new bootstrap.Modal(document.getElementById('fullAnalysisModal'));
+
+            const content = `
+                        <div class="text-center mb-3">
+                            <h5>Análisis Detallado - Rostro ${faceIndex + 1}</h5>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Información General</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Confianza de detección:</strong> ${(detection.detection.score * 100).toFixed(2)}%</li>
+                                    <li><strong>Edad estimada:</strong> ${Math.round(detection.age)} años</li>
+                                    <li><strong>Género:</strong> ${detection.gender}</li>
+                                    <li><strong>Posición:</strong> X:${Math.round(detection.detection.box.x)}, Y:${Math.round(detection.detection.box.y)}</li>
+                                    <li><strong>Tamaño:</strong> ${Math.round(detection.detection.box.width)}×${Math.round(detection.detection.box.height)}px</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Análisis de Emociones</h6>
+                                ${Object.entries(detection.expressions).map(([emotion, value]) => `
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small>${translateEmotion(emotion)}</small>
+                                            <small>${(value * 100).toFixed(1)}%</small>
+                                        </div>
+                                        <div class="emotion-bar">
+                                            <div class="emotion-fill" style="width: ${value * 100}%"></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <h6>Puntos Faciales</h6>
+                            <p class="text-muted small">Se detectaron ${detection.landmarks.positions.length} puntos de referencia facial para análisis preciso.</p>
+                        </div>
+                    `;
+
+            document.getElementById('fullAnalysisContent').innerHTML = content;
+            modal.show();
+        }
+
+        function showFullAnalysis() {
+            if (!analysisData) return;
+
+            const modal = new bootstrap.Modal(document.getElementById('fullAnalysisModal'));
+
+            const avgAge = analysisData.reduce((sum, d) => sum + d.age, 0) / analysisData.length;
+            const genderCount = analysisData.reduce((acc, d) => {
+                acc[d.gender] = (acc[d.gender] || 0) + 1;
+                return acc;
+            }, {});
+
+            const content = `
+                        <div class="text-center mb-3">
+                            <h5>Reporte Completo de Análisis Facial</h5>
+                            <p class="text-muted">Análisis de ${analysisData.length} rostro(s) detectado(s)</p>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4 text-center">
+                                <div class="card border-primary">
+                                    <div class="card-body">
+                                        <h2 class="text-primary">${analysisData.length}</h2>
+                                        <p class="mb-0">Rostros Detectados</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="card border-success">
+                                    <div class="card-body">
+                                        <h2 class="text-success">${Math.round(avgAge)}</h2>
+                                        <p class="mb-0">Edad Promedio</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="card border-info">
+                                    <div class="card-body">
+                                        <h2 class="text-info">${Object.keys(genderCount).length}</h2>
+                                        <p class="mb-0">Géneros Detectados</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Distribución por Género</h6>
+                                ${Object.entries(genderCount).map(([gender, count]) => `
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>${gender}:</span>
+                                        <span><strong>${count}</strong> (${((count / analysisData.length) * 100).toFixed(1)}%)</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Emociones Dominantes</h6>
+                                ${getOverallEmotions()}
+                            </div>
+                        </div>
+                    `;
+
+            document.getElementById('fullAnalysisContent').innerHTML = content;
+            modal.show();
+        }
+
+        function getOverallEmotions() {
+            if (!analysisData || analysisData.length === 0) return '';
+
+            // Calcular promedio de emociones
+            const emotionSums = {};
+            analysisData.forEach(detection => {
+                Object.entries(detection.expressions).forEach(([emotion, value]) => {
+                    emotionSums[emotion] = (emotionSums[emotion] || 0) + value;
+                });
+            });
+
+            const emotionAvgs = Object.entries(emotionSums).map(([emotion, sum]) => [
+                emotion, sum / analysisData.length
+            ]).sort(([, a], [, b]) => b - a);
+
+            return emotionAvgs.slice(0, 5).map(([emotion, avg]) => `
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>${translateEmotion(emotion)}:</span>
+                            <span><strong>${(avg * 100).toFixed(1)}%</strong></span>
+                        </div>
+                    `).join('');
+        }
+
+        function downloadAnalysis() {
+            if (!analysisData) return;
+
+            const report = {
+                timestamp: new Date().toISOString(),
+                totalFaces: analysisData.length,
+                faces: analysisData.map((detection, index) => ({
+                    id: index + 1,
+                    confidence: detection.detection.score,
+                    age: Math.round(detection.age),
+                    gender: detection.gender,
+                    emotions: detection.expressions,
+                    boundingBox: detection.detection.box
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analisis-facial-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function uploadAndAnalyze() {
+            // Mostrar loading
+            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+            loadingModal.show();
+
+            // Enviar formulario
+            document.getElementById('uploadForm').submit();
+        }
+
+        function cancelUpload() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('imagePreview').style.display = 'none';
+            currentImageFile = null;
+            analysisData = null;
+        }
+
+        // Auto-ocultar alerts después de 5 segundos
+        setTimeout(function () {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+}

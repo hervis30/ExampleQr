@@ -1,0 +1,703 @@
+﻿@{
+    ViewData["Title"] = "Detección Facial en Tiempo Real";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-camera me-2"></i>
+                        Detección Facial en Tiempo Real
+                    </h4>
+                    <div>
+                        <a href="@Url.Action("Index")" class="btn btn-light btn-sm me-2">
+                            <i class="fas fa-arrow-left me-2"></i>Volver
+                        </a>
+                        <button id="fullscreenBtn" class="btn btn-light btn-sm">
+                            <i class="fas fa-expand me-1"></i>Pantalla Completa
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Área de video -->
+                        <div class="col-lg-8">
+                            <div class="position-relative">
+                                <video id="video" width="100%" height="auto" autoplay muted playsinline class="border rounded"></video>
+
+                                <!-- Canvas overlay para dibujar detecciones -->
+                                <canvas id="overlay" class="position-absolute top-0 start-0 border rounded"></canvas>
+
+                                <!-- Canvas oculto para procesamiento -->
+                                <canvas id="canvas" style="display: none;"></canvas>
+                            </div>
+
+                            <!-- Controles de cámara -->
+                            <div class="mt-3 text-center">
+                                <button id="startBtn" class="btn btn-info me-2">
+                                    <i class="fas fa-play me-2"></i>Iniciar Detección
+                                </button>
+                                <button id="stopBtn" class="btn btn-danger me-2" disabled>
+                                    <i class="fas fa-stop me-2"></i>Detener
+                                </button>
+                                <button id="switchBtn" class="btn btn-secondary me-2" disabled>
+                                    <i class="fas fa-sync-alt me-2"></i>Cambiar Cámara
+                                </button>
+                                <button id="captureBtn" class="btn btn-success me-2" disabled>
+                                    <i class="fas fa-camera me-2"></i>Capturar
+                                </button>
+
+                                <!-- Configuraciones -->
+                                <div class="form-check form-switch d-inline-block ms-3">
+                                    <input class="form-check-input" type="checkbox" id="showLandmarks" checked>
+                                    <label class="form-check-label" for="showLandmarks">
+                                        Mostrar puntos faciales
+                                    </label>
+                                </div>
+
+                                <div class="form-check form-switch d-inline-block ms-3">
+                                    <input class="form-check-input" type="checkbox" id="showExpressions" checked>
+                                    <label class="form-check-label" for="showExpressions">
+                                        Mostrar emociones
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de información -->
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Información de Detección</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="status" class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Presiona "Iniciar Detección" para comenzar
+                                    </div>
+
+                                    <!-- Estadísticas en tiempo real -->
+                                    <div id="stats" class="mb-3" style="display: none;">
+                                        <h6>Estadísticas:</h6>
+                                        <ul class="list-unstyled small">
+                                            <li><strong>Rostros detectados:</strong> <span id="faceCount">0</span></li>
+                                            <li><strong>FPS:</strong> <span id="fps">0</span></li>
+                                            <li><strong>Tiempo de procesamiento:</strong> <span id="processTime">0ms</span></li>
+                                            <li><strong>Resolución:</strong> <span id="resolution">-</span></li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Información de rostros detectados -->
+                                    <div id="faceInfo" class="mb-3" style="display: none;">
+                                        <h6>Rostros Detectados:</h6>
+                                        <div id="faceList" class="small">
+                                            <!-- Se llenarán dinámicamente -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Capturas guardadas -->
+                                    <div id="captures" class="mb-3" style="display: none;">
+                                        <h6>Capturas:</h6>
+                                        <div id="captureList" class="row">
+                                            <!-- Se llenarán dinámicamente -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Configuraciones avanzadas -->
+                                    <div class="accordion accordion-flush" id="advancedSettings">
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSettings">
+                                                    <i class="fas fa-cog me-2"></i>Configuraciones Avanzadas
+                                                </button>
+                                            </h2>
+                                            <div id="collapseSettings" class="accordion-collapse collapse">
+                                                <div class="accordion-body small">
+                                                    <div class="mb-2">
+                                                        <label for="confidenceThreshold" class="form-label">Umbral de confianza:</label>
+                                                        <input type="range" class="form-range" id="confidenceThreshold" min="0.1" max="1" step="0.1" value="0.5">
+                                                        <span id="confidenceValue">0.5</span>
+                                                    </div>
+
+                                                    <div class="mb-2">
+                                                        <label for="detectionSize" class="form-label">Tamaño de detección:</label>
+                                                        <select class="form-select form-select-sm" id="detectionSize">
+                                                            <option value="416">Alta calidad (416px)</option>
+                                                            <option value="320">Calidad media (320px)</option>
+                                                            <option value="224" selected>Rápido (224px)</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="enableAgeGender" checked>
+                                                        <label class="form-check-label" for="enableAgeGender">
+                                                            Detectar edad y género
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        #video, #overlay {
+            max-height: 500px;
+            width: 100%;
+            object-fit: cover;
+            background-color: #000;
+        }
+
+        #overlay {
+            pointer-events: none;
+        }
+
+        .face-info-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background-color: #f8f9fa;
+        }
+
+        .capture-thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+            .capture-thumbnail:hover {
+                border-color: #0d6efd;
+            }
+
+        .emotion-bar {
+            height: 4px;
+            background-color: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+
+        .emotion-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .fullscreen-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .fullscreen-container video,
+            .fullscreen-container canvas {
+                max-width: 100%;
+                max-height: 100%;
+            }
+    </style>
+}
+
+@section Scripts {
+    <!-- Face-api.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+        let video, overlay, canvas, context, overlayContext;
+        let isDetecting = false, currentStream = null;
+        let cameras = [], currentCameraIndex = 0;
+        let modelsLoaded = false;
+        let detectionInterval = null;
+        let faceCount = 0, frameCount = 0, lastTime = Date.now();
+        let captures = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            video = document.getElementById('video');
+            overlay = document.getElementById('overlay');
+            canvas = document.getElementById('canvas');
+            context = canvas.getContext('2d');
+            overlayContext = overlay.getContext('2d');
+
+            // Event listeners
+            document.getElementById('startBtn').addEventListener('click', startDetection);
+            document.getElementById('stopBtn').addEventListener('click', stopDetection);
+            document.getElementById('switchBtn').addEventListener('click', switchCamera);
+            document.getElementById('captureBtn').addEventListener('click', captureFrame);
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+
+            // Configuración de controles
+            document.getElementById('confidenceThreshold').addEventListener('input', function (e) {
+                document.getElementById('confidenceValue').textContent = e.target.value;
+            });
+
+            // Cargar modelos de Face-api.js
+            loadModels();
+            detectCameras();
+        });
+
+        async function loadModels() {
+            try {
+                updateStatus('Cargando modelos de inteligencia artificial...', 'warning');
+
+                // Intentar con diferentes CDNs
+                const MODEL_URLS = [
+                    'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
+                    'https://unpkg.com/face-api.js@0.22.2/weights',
+                    '/models' // Por si quieres descargar los modelos localmente
+                ];
+
+                let modelsLoadedSuccessfully = false;
+
+                for (const MODEL_URL of MODEL_URLS) {
+                    try {
+                        console.log(`Intentando cargar modelos desde: ${MODEL_URL}`);
+
+                        // Cargar modelos necesarios uno por uno con mejor control de errores
+                        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                        console.log('✓ TinyFaceDetector cargado');
+
+                        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                        console.log('✓ FaceLandmark68Net cargado');
+
+                        await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+                        console.log('✓ FaceExpressionNet cargado');
+
+                        await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+                        console.log('✓ AgeGenderNet cargado');
+
+                        modelsLoadedSuccessfully = true;
+                        break;
+
+                    } catch (error) {
+                        console.warn(`Falló la carga desde ${MODEL_URL}:`, error);
+                        continue;
+                    }
+                }
+
+                if (modelsLoadedSuccessfully) {
+                    modelsLoaded = true;
+                    updateStatus('Modelos cargados correctamente. Listo para detectar rostros.', 'success');
+                    document.getElementById('startBtn').disabled = false;
+                } else {
+                    throw new Error('No se pudieron cargar los modelos desde ningún CDN');
+                }
+
+            } catch (error) {
+                console.error('Error cargando modelos:', error);
+                updateStatus('Error al cargar modelos de IA. Intentando modo básico...', 'warning');
+
+                // Modo de respaldo: solo detección básica
+                try {
+                    await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+                    modelsLoaded = true;
+                    updateStatus('Modo básico cargado. Solo detección facial disponible.', 'warning');
+                    document.getElementById('startBtn').disabled = false;
+
+                    // Deshabilitar características avanzadas
+                    document.getElementById('enableAgeGender').checked = false;
+                    document.getElementById('enableAgeGender').disabled = true;
+                    document.getElementById('showExpressions').checked = false;
+                    document.getElementById('showExpressions').disabled = true;
+
+                } catch (fallbackError) {
+                    updateStatus('Error crítico: No se pudieron cargar los modelos. Verifica tu conexión a internet y recarga la página.', 'danger');
+                    console.error('Error en modo de respaldo:', fallbackError);
+                }
+            }
+        }
+
+        async function detectCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                cameras = devices.filter(device => device.kind === 'videoinput');
+
+                if (cameras.length > 1) {
+                    document.getElementById('switchBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error detectando cámaras:', error);
+            }
+        }
+
+        async function startDetection() {
+            if (!modelsLoaded) {
+                updateStatus('Los modelos aún se están cargando. Espera un momento.', 'warning');
+                return;
+            }
+
+            try {
+                const constraints = {
+                    video: {
+                        deviceId: cameras.length > 0 ? cameras[currentCameraIndex].deviceId : undefined,
+                        facingMode: cameras.length === 0 ? 'user' : undefined,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+
+                video.onloadedmetadata = () => {
+                    video.play();
+
+                    // Configurar canvas overlay
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+
+                    // Mostrar información de resolución
+                    document.getElementById('resolution').textContent = `${video.videoWidth}x${video.videoHeight}`;
+
+                    // Iniciar detección
+                    isDetecting = true;
+                    detectFaces();
+
+                    // Mostrar estadísticas
+                    document.getElementById('stats').style.display = 'block';
+                    document.getElementById('faceInfo').style.display = 'block';
+                };
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('switchBtn').disabled = cameras.length <= 1;
+                document.getElementById('captureBtn').disabled = false;
+
+                updateStatus('Detección facial iniciada.', 'success');
+
+            } catch (error) {
+                console.error('Error accediendo a la cámara:', error);
+                updateStatus('Error: No se pudo acceder a la cámara. Verifica los permisos.', 'danger');
+            }
+        }
+
+        function stopDetection() {
+            isDetecting = false;
+
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+            }
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+
+            video.srcObject = null;
+            overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('switchBtn').disabled = true;
+            document.getElementById('captureBtn').disabled = true;
+
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('faceInfo').style.display = 'none';
+
+            updateStatus('Detección detenida.', 'secondary');
+        }
+
+        async function switchCamera() {
+            if (cameras.length <= 1) return;
+
+            currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+
+            if (isDetecting) {
+                stopDetection();
+                setTimeout(startDetection, 500);
+            }
+        }
+
+        async function detectFaces() {
+            if (!isDetecting || !video.videoWidth || !video.videoHeight) {
+                if (isDetecting) {
+                    requestAnimationFrame(detectFaces);
+                }
+                return;
+            }
+
+            const startTime = Date.now();
+
+            try {
+                // Configurar opciones de detección
+                const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+                    inputSize: parseInt(document.getElementById('detectionSize').value),
+                    scoreThreshold: parseFloat(document.getElementById('confidenceThreshold').value)
+                });
+
+                // Detectar rostros con información adicional
+                let detections = await faceapi
+                    .detectAllFaces(video, detectionOptions)
+                    .withFaceLandmarks();
+
+                if (document.getElementById('showExpressions').checked) {
+                    detections = await faceapi
+                        .detectAllFaces(video, detectionOptions)
+                        .withFaceLandmarks()
+                        .withFaceExpressions();
+                }
+
+                if (document.getElementById('enableAgeGender').checked) {
+                    detections = await faceapi
+                        .detectAllFaces(video, detectionOptions)
+                        .withFaceLandmarks()
+                        .withFaceExpressions()
+                        .withAgeAndGender();
+                }
+
+                // Limpiar canvas overlay
+                overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+
+                // Dibujar detecciones
+                if (detections.length > 0) {
+                    drawDetections(detections);
+                    updateFaceInfo(detections);
+                }
+
+                faceCount = detections.length;
+                updateStats(Date.now() - startTime);
+
+            } catch (error) {
+                console.error('Error en detección:', error);
+            }
+
+            if (isDetecting) {
+                requestAnimationFrame(detectFaces);
+            }
+        }
+
+        function drawDetections(detections) {
+            detections.forEach((detection, index) => {
+                const { x, y, width, height } = detection.detection.box;
+
+                // Dibujar rectángulo del rostro
+                overlayContext.strokeStyle = '#00ff00';
+                overlayContext.lineWidth = 2;
+                overlayContext.strokeRect(x, y, width, height);
+
+                // Mostrar puntos faciales si está habilitado
+                if (document.getElementById('showLandmarks').checked && detection.landmarks) {
+                    overlayContext.fillStyle = '#ff0000';
+                    detection.landmarks.positions.forEach(point => {
+                        overlayContext.beginPath();
+                        overlayContext.arc(point.x, point.y, 1, 0, 2 * Math.PI);
+                        overlayContext.fill();
+                    });
+                }
+
+                // Mostrar información del rostro
+                overlayContext.fillStyle = '#00ff00';
+                overlayContext.font = '14px Arial';
+
+                let infoY = y - 10;
+
+                // Edad y género
+                if (detection.age && detection.gender) {
+                    const info = `${Math.round(detection.age)} años, ${detection.gender}`;
+                    overlayContext.fillText(info, x, infoY);
+                    infoY -= 20;
+                }
+
+                // Emoción dominante
+                if (detection.expressions) {
+                    const maxExpression = Object.keys(detection.expressions).reduce((a, b) =>
+                        detection.expressions[a] > detection.expressions[b] ? a : b
+                    );
+                    overlayContext.fillText(`${maxExpression} (${(detection.expressions[maxExpression] * 100).toFixed(1)}%)`, x, infoY);
+                }
+            });
+        }
+
+        function updateFaceInfo(detections) {
+            const faceList = document.getElementById('faceList');
+            faceList.innerHTML = '';
+
+            detections.forEach((detection, index) => {
+                const faceDiv = document.createElement('div');
+                faceDiv.className = 'face-info-card';
+
+                let html = `<strong>Rostro ${index + 1}</strong><br>`;
+                html += `<small>Confianza: ${(detection.detection.score * 100).toFixed(1)}%</small><br>`;
+
+                if (detection.age && detection.gender) {
+                    html += `<small>Edad: ${Math.round(detection.age)} años</small><br>`;
+                    html += `<small>Género: ${detection.gender}</small><br>`;
+                }
+
+                if (detection.expressions) {
+                    html += '<small>Emociones:</small><br>';
+                    Object.keys(detection.expressions).forEach(emotion => {
+                        const confidence = detection.expressions[emotion] * 100;
+                        if (confidence > 10) { // Solo mostrar emociones con más del 10%
+                            html += `<div class="emotion-bar">
+                                        <div class="emotion-fill bg-primary" style="width: ${confidence}%"></div>
+                                    </div>
+                                    <small>${emotion}: ${confidence.toFixed(1)}%</small><br>`;
+                        }
+                    });
+                }
+
+                faceDiv.innerHTML = html;
+                faceList.appendChild(faceDiv);
+            });
+        }
+
+        function updateStats(processTime) {
+            frameCount++;
+            const now = Date.now();
+
+            if (now - lastTime >= 1000) {
+                const fps = frameCount;
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastTime = now;
+            }
+
+            document.getElementById('faceCount').textContent = faceCount;
+            document.getElementById('processTime').textContent = processTime + 'ms';
+        }
+
+        function captureFrame() {
+            if (!video.videoWidth || !video.videoHeight) return;
+
+            // Configurar canvas para captura
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+
+            // Crear imagen base64
+            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Agregar a la lista de capturas
+            const capture = {
+                id: Date.now(),
+                dataURL: dataURL,
+                timestamp: new Date().toLocaleTimeString(),
+                faceCount: faceCount
+            };
+
+            captures.unshift(capture);
+            if (captures.length > 6) captures.pop(); // Mantener solo las últimas 6
+
+            updateCaptureList();
+
+            // Mostrar feedback
+            const btn = document.getElementById('captureBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Capturado!';
+            btn.classList.add('btn-outline-success');
+            btn.classList.remove('btn-success');
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-outline-success');
+            }, 1000);
+        }
+
+        function updateCaptureList() {
+            if (captures.length === 0) return;
+
+            document.getElementById('captures').style.display = 'block';
+            const captureList = document.getElementById('captureList');
+            captureList.innerHTML = '';
+
+            captures.forEach(capture => {
+                const col = document.createElement('div');
+                col.className = 'col-4 mb-2';
+
+                const img = document.createElement('img');
+                img.src = capture.dataURL;
+                img.className = 'capture-thumbnail';
+                img.title = `${capture.timestamp} - ${capture.faceCount} rostro(s)`;
+                img.onclick = () => showCaptureModal(capture);
+
+                col.appendChild(img);
+                captureList.appendChild(col);
+            });
+        }
+
+        function showCaptureModal(capture) {
+            // Crear modal dinámico para mostrar captura
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Captura - ${capture.timestamp}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <img src="${capture.dataURL}" class="img-fluid" alt="Captura">
+                                    <p class="mt-2"><small>Rostros detectados: ${capture.faceCount}</small></p>
+                                </div>
+                                <div class="modal-footer">
+                                    <a href="${capture.dataURL}" download="captura_${capture.id}.jpg" class="btn btn-primary">
+                                        <i class="fas fa-download me-2"></i>Descargar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+
+            modal.addEventListener('hidden.bs.modal', () => {
+                document.body.removeChild(modal);
+            });
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.container-fluid');
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().then(() => {
+                    container.classList.add('fullscreen-container');
+                    document.getElementById('fullscreenBtn').innerHTML = '<i class="fas fa-compress me-1"></i>Salir';
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    container.classList.remove('fullscreen-container');
+                    document.getElementById('fullscreenBtn').innerHTML = '<i class="fas fa-expand me-1"></i>Pantalla Completa';
+                });
+            }
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `alert alert-${type}`;
+            status.innerHTML = `<i class="fas fa-info-circle me-2"></i>${message}`;
+        }
+
+        // Limpiar recursos al salir
+        window.addEventListener('beforeunload', () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+}

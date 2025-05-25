@@ -31,7 +31,7 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
-                        <!-- Menú QR Scanner -->
+                        <!-- QR SCANNER -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle text-dark" href="#" id="qrDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="fas fa-qrcode me-1"></i> QR Scanner
@@ -49,6 +49,41 @@
                                 </li>
                             </ul>
                         </li>
+                        <!-- RECONOCIMIENTO FACIAL -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-dark" href="#" id="faceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-check me-1"></i> Reconocimiento Facial
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="faceDropdown">
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Face" asp-action="Index">
+                                        <i class="fas fa-home me-1"></i> Inicio
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Face" asp-action="Detection">
+                                        <i class="fas fa-camera me-1"></i> Detección en Vivo
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Face" asp-action="Recognition">
+                                        <i class="fas fa-users me-1"></i> Reconocimiento
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Face" asp-action="Upload">
+                                        <i class="fas fa-upload me-1"></i> Analizar Imagen
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" asp-area="" asp-controller="Face" asp-action="Statistics">
+                                        <i class="fas fa-chart-bar me-1"></i> Estadísticas
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -57,6 +92,7 @@
 
     <div class="container">
         <main role="main" class="pb-3">
+            <!-- CRÍTICO: Esta línea renderiza el contenido de cada vista -->
             @RenderBody()
         </main>
     </div>

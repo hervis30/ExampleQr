@@ -17,4 +17,9 @@
     <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" Version="0.16.13" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\facedata\" />
+    <Folder Include="wwwroot\uploads\" />
+  </ItemGroup>
+
 </Project>
